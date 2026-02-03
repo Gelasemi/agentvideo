@@ -2,3 +2,5 @@ streamlit
 gtts
 moviepy==1.0.3
 pillow
+requests  # Pour scraping HTTP
+beautifulsoup4  # Pour parser HTML (bs4)
