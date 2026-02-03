@@ -1,0 +1,14 @@
+globecast-ai-mvp/
+├── app.py               ← main Streamlit app (copy code below)
+├── requirements.txt     ← dependencies list
+└── avatars/             ← folder for images
+    ├── avatar_en.png
+    ├── avatar_zh.png
+    ├── avatar_hi.png
+    ├── avatar_es.png
+    ├── avatar_fr.png
+    ├── avatar_ar.png
+    ├── avatar_bn.png
+    ├── avatar_ru.png
+    ├── avatar_pt.png
+    └── avatar_ur.png
