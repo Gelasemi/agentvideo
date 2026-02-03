@@ -1,6 +1,6 @@
 import streamlit as st
 from gtts import gTTS
-from moviepy.editor import ImageClip, AudioFileClip, TextClip, CompositeVideoClip
+from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip
 import os
 import tempfile
 
@@ -161,4 +161,5 @@ if st.button("🎥 Générer la Vidéo Maintenant", type="primary"):
                         os.remove(path)
 
 st.markdown("---")
+
 st.caption("Prochaines étapes possibles : meilleure génération de script, musique de fond gratuite, avatars IA simples via PIL, publication directe... Contactez-moi sur GitHub ! 🚀")
