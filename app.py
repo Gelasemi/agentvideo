@@ -1,5 +1,9 @@
 import streamlit as st
 from gtts import gTTS
+import os
+from moviepy.config import change_settings
+# Force MoviePy to use the correct ImageMagick binary name on modern systems
+change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/magick"})
 from moviepy.editor import (
     ImageClip,
     AudioFileClip,
@@ -247,4 +251,5 @@ if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primar
         if music_path and os.path.exists(music_path):
             os.remove(music_path)
         gc.collect()
+
 
