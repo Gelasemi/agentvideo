@@ -1,3 +1,2 @@
 ffmpeg
 imagemagick
-libmagickwand-dev   # sometimes helpful for bindings
