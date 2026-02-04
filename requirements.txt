@@ -3,3 +3,6 @@ moviepy
 gtts
 numpy
 Pillow
+imageio
+imageio-ffmpeg
+requests
