@@ -1,6 +1,14 @@
 import streamlit as st
 from gtts import gTTS
-from moviepy.editor import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips, ColorClip, CompositeAudioClip
+from moviepy.editor import (
+    ImageClip,
+    AudioFileClip,
+    TextClip,
+    CompositeVideoClip,
+    concatenate_videoclips,
+    ColorClip,
+    CompositeAudioClip
+)
 import os
 import tempfile
 import requests
@@ -239,3 +247,4 @@ if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primar
         if music_path and os.path.exists(music_path):
             os.remove(music_path)
         gc.collect()
+
