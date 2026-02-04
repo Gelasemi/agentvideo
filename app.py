@@ -200,16 +200,16 @@ if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primar
             video = ColorClip(size=size, color=(0,0,0), duration=duration)
 
         txt_clip = TextClip(
-            script_text[:150] + "...",
-            fontsize=45,
-            color='white',
-            stroke_color='black',
-            stroke_width=1.5,
-            font='Arial-Bold',
-            method='caption',
-            align='center',
-            size=(size[0]-120, None)
-        ).set_position(('center', 'bottom')).set_duration(duration)
+    script_text[:150] + "...",
+    fontsize=45,
+    color='white',
+    stroke_color='black',
+    stroke_width=2,
+    font='DejaVu-Sans',          # almost always available
+    method='label',              # ← very important: avoids most ImageMagick calls
+    size=(size[0]-120, None),
+    align='center'
+).set_position(('center', 'bottom')).set_duration(duration)
 
         final = CompositeVideoClip([video, txt_clip]).set_audio(audio_final)
 
@@ -251,5 +251,6 @@ if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primar
         if music_path and os.path.exists(music_path):
             os.remove(music_path)
         gc.collect()
+
 
 
