@@ -1,26 +1,20 @@
 import streamlit as st
 from gtts import gTTS
 import os
-from moviepy.config import change_settings
-# Force MoviePy to use the correct ImageMagick binary name on modern systems
-change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/magick"})
-from moviepy.editor import (
-    ImageClip,
-    AudioFileClip,
-    TextClip,
-    CompositeVideoClip,
-    concatenate_videoclips,
-    ColorClip,
-    CompositeAudioClip
-)
-import os
 import tempfile
 import requests
 from bs4 import BeautifulSoup
-from pydub import AudioSegment
 import gc
+from moviepy.config import change_settings
+from moviepy.editor import (
+    ImageClip, AudioFileClip, TextClip, CompositeVideoClip,
+    concatenate_videoclips, ColorClip, CompositeAudioClip
+)
 
-# Supported languages
+# Configuration ImageMagick pour Streamlit Cloud (Debian moderne)
+change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/magick"})
+
+# Supported languages (top 10 most spoken – gTTS codes)
 LANGUAGES = {
     "1. Anglais": "en",
     "2. Chinois Mandarin": "zh",
@@ -35,11 +29,12 @@ LANGUAGES = {
 }
 
 def get_content(subject):
+    """Récupère un extrait de Wikipedia (5 premiers paragraphes)"""
     content = ""
     try:
         query = subject.replace(' ', '_')
         url = f"https://en.wikipedia.org/wiki/{query}"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=6)
         soup = BeautifulSoup(response.text, 'html.parser')
         div = soup.find('div', {'class': 'mw-parser-output'})
         if div:
@@ -50,46 +45,51 @@ def get_content(subject):
     return content or "Découvrez les avantages uniques de ce sujet."
 
 def get_images(subject, num=3):
+    """Récupère des images depuis Unsplash"""
     images = []
     try:
         query = subject.replace(' ', '%20')
         url = f"https://unsplash.com/s/photos/{query}"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=5)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=6)
         soup = BeautifulSoup(response.text, 'html.parser')
-        img_tags = soup.find_all('img', {'srcset': True}, limit=num*2)
+        img_tags = soup.find_all('img', {'srcset': True}, limit=num*3)
+        
         for img in img_tags:
             if 'srcset' in img.attrs:
                 srcset = img['srcset'].split(',')
-                url = srcset[-1].strip().split(' ')[0]  # Plus haute résolution
-                resp = requests.get(url, timeout=5, stream=True)
-                if resp.status_code == 200:
-                    path = tempfile.mktemp(suffix=".jpg")
-                    with open(path, 'wb') as f:
-                        for chunk in resp.iter_content(8192):
-                            f.write(chunk)
-                    images.append(path)
-                    if len(images) >= num:
-                        break
+                url = srcset[-1].strip().split(' ')[0]  # plus haute résolution
+                try:
+                    resp = requests.get(url, timeout=6, stream=True)
+                    if resp.status_code == 200:
+                        path = tempfile.mktemp(suffix=".jpg")
+                        with open(path, 'wb') as f:
+                            for chunk in resp.iter_content(8192):
+                                f.write(chunk)
+                        images.append(path)
+                        if len(images) >= num:
+                            break
+                except:
+                    continue
     except Exception as e:
         st.warning(f"Erreur images Unsplash : {e}")
     return images
 
 def generate_script(subject, company, content):
-    script = (
+    """Génère un script publicitaire court"""
+    return (
         f"Attention ! {subject} change tout ! Avec {company}, profitez du meilleur. "
         f"{content[:400]}... "
         f"Chez {company}, qualité, innovation et confiance. "
         f"Rejoignez-nous dès aujourd'hui : abonnez-vous, contactez-nous !"
     )
-    return script
 
-def download_music():
-    # Musique libre de droits (exemple FMA - Upbeat Corporate - CC BY-ND)
+def download_background_music():
+    """Télécharge une musique libre de droits (exemple)"""
     url = "https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Lite_Saturation/Upbeat_Corporate/Lite_Saturation_-_Medium2.mp3"
     path = tempfile.mktemp(suffix=".mp3")
     try:
-        resp = requests.get(url, timeout=10, stream=True)
+        resp = requests.get(url, timeout=12, stream=True)
         resp.raise_for_status()
         with open(path, 'wb') as f:
             for chunk in resp.iter_content(8192):
@@ -98,31 +98,31 @@ def download_music():
     except:
         return None
 
-def normalize_audio(audio_path):
-    """Améliore la qualité audio avec pydub : normalisation + léger boost"""
+def boost_audio_volume(input_path, output_path, db_boost=5):
+    """Augmente le volume avec ffmpeg (alternative à pydub)"""
     try:
-        sound = AudioSegment.from_mp3(audio_path)
-        # Normalisation + compression dynamique
-        normalized = sound.normalize()
-        # Boost subtil si trop bas
-        if normalized.dBFS < -20:
-            normalized = normalized + 6  # +6 dB max
-        normalized.export(audio_path, format="mp3")
-    except Exception as e:
-        st.warning(f"Normalisation audio échouée : {e}")
+        os.system(
+            f'ffmpeg -y -i "{input_path}" -filter:a "volume={db_boost}dB" '
+            f'-acodec libmp3lame -q:a 2 "{output_path}" > /dev/null 2>&1'
+        )
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            os.replace(output_path, input_path)  # remplace l'original
+    except:
+        pass  # silencieux si échec
 
 st.set_page_config(page_title="GlobeCast AI – Qualité Pro", layout="wide")
 
-st.title("🌍 GlobeCast AI – Version Qualité Pro (Voix + Transitions + Musique)")
+st.title("🌍 GlobeCast AI – Version Qualité Pro")
 st.markdown("""
 **Créé par : Dauphin Gelase Michelot**  
 **Label :** M&G Consulting  
-**GitHub :** [gelasemi](https://github.com/gelasemi)  
-**Améliorations :**  
-- Voix off normalisée (plus claire et puissante)  
-- Transitions fluides entre images (crossfade)  
-- Musique de fond libre de droits (volume équilibré)  
-- Robustesse totale aux erreurs de scraping
+**GitHub :** [gelasemi/agentvideo](https://github.com/gelasemi/agentvideo)  
+
+**Améliorations actuelles :**
+- Voix off boostée (volume corrigé via ffmpeg)
+- Transitions crossfade entre images
+- Musique de fond à volume réduit
+- Texte affiché sans dépendance lourde à ImageMagick
 """)
 
 subject = st.text_input("Sujet", value="Café éthique")
@@ -134,51 +134,65 @@ platform = st.selectbox("Plateforme", [
     "Facebook – Carré 1:1"
 ])
 
-if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primary"):
+if st.button("Générer Vidéo Pro", type="primary"):
     progress = st.progress(0)
     status = st.empty()
 
     lang_code = LANGUAGES[language_name]
 
-    status.text("Contenu...")
+    # Étape 1
+    status.text("Récupération contenu Wikipedia...")
     content = get_content(subject)
     progress.progress(15)
 
-    status.text("Script...")
+    # Étape 2
+    status.text("Génération script voix off...")
     script_text = generate_script(subject, company, content)
     st.write("**Script voix off :**", script_text)
     progress.progress(25)
 
-    status.text("Voix off (qualité améliorée)...")
+    # Étape 3 – Voix off
+    status.text("Synthèse vocale (gTTS)...")
     try:
         tts = gTTS(text=script_text[:1000], lang=lang_code, slow=False)
         voice_path = tempfile.mktemp(suffix=".mp3")
+        boosted_voice = tempfile.mktemp(suffix=".mp3")
         tts.save(voice_path)
-        normalize_audio(voice_path)  # ← Amélioration qualité
+        
+        # Boost volume (alternative pydub)
+        boost_audio_volume(voice_path, boosted_voice, db_boost=6)
+        if os.path.getsize(voice_path) < 15000:  # fichier trop petit → échec
+            raise ValueError("Fichier voix trop petit")
     except Exception as e:
-        st.error(f"TTS erreur : {e}")
+        st.error(f"Erreur synthèse vocale : {e}")
         st.stop()
+
     progress.progress(40)
 
-    status.text("Musique de fond...")
-    music_path = download_music()
+    # Étape 4 – Musique
+    status.text("Ajout musique de fond...")
+    music_path = download_background_music()
     progress.progress(50)
 
-    status.text("Images en ligne...")
+    # Étape 5 – Images
+    status.text("Téléchargement images Unsplash...")
     images = get_images(subject, num=3)
     progress.progress(60)
 
-    status.text("Vidéo avec transitions fluides...")
+    # Étape 6 – Création vidéo
+    status.text("Assemblage vidéo avec transitions...")
     try:
         voice_clip = AudioFileClip(voice_path)
-        duration = min(voice_clip.duration, 60)
+        duration = min(voice_clip.duration, 60)  # max 60s
 
+        # Musique de fond si disponible
         if music_path:
-            music_clip = AudioFileClip(music_path).subclip(0, duration).volumex(0.25)  # Volume fond bas
+            music_clip = AudioFileClip(music_path).subclip(0, duration).volumex(0.20)
             audio_final = CompositeAudioClip([voice_clip, music_clip])
         else:
             audio_final = voice_clip
 
+        # Format selon plateforme
         if platform.startswith("TikTok"):
             size = (1080, 1920)
         elif platform.startswith("YouTube"):
@@ -186,71 +200,70 @@ if st.button("Générer Vidéo Pro (Qualité Audio + Transitions)", type="primar
         else:
             size = (1080, 1080)
 
+        # Images → clips avec transitions
         if images:
-            clip_duration = duration / len(images)
+            clip_duration = duration / max(1, len(images))
             img_clips = []
-            for img in images:
-                clip = (ImageClip(img)
-                        .set_duration(clip_duration + 1)  # +1s pour transition
+            for img_path in images:
+                clip = (ImageClip(img_path)
+                        .set_duration(clip_duration + 1.2)
                         .crossfadein(1.0)
                         .crossfadeout(1.0))
                 img_clips.append(clip)
-            video = concatenate_videoclips(img_clips, method="compose", padding=-1).resize(size)
+            base_video = concatenate_videoclips(img_clips, method="compose").resize(size)
         else:
-            video = ColorClip(size=size, color=(0,0,0), duration=duration)
+            base_video = ColorClip(size=size, color=(20,20,40), duration=duration)
 
+        # Texte overlay (sans caption → évite ImageMagick compliqué)
         txt_clip = TextClip(
-    script_text[:150] + "...",
-    fontsize=45,
-    color='white',
-    stroke_color='black',
-    stroke_width=2,
-    font='DejaVu-Sans',          # almost always available
-    method='label',              # ← very important: avoids most ImageMagick calls
-    size=(size[0]-120, None),
-    align='center'
-).set_position(('center', 'bottom')).set_duration(duration)
+            script_text[:150] + "...",
+            fontsize=50,
+            color='white',
+            stroke_color='black',
+            stroke_width=2,
+            font='DejaVu-Sans',          # police très souvent disponible
+            method='label',              # ← clé : évite la plupart des problèmes
+            align='center',
+            size=(size[0]-140, None)
+        ).set_position(('center', 'bottom')).set_duration(duration)
 
-        final = CompositeVideoClip([video, txt_clip]).set_audio(audio_final)
+        final_video = CompositeVideoClip([base_video, txt_clip]).set_audio(audio_final)
 
+        # Export
         video_path = tempfile.mktemp(suffix=".mp4")
-        final.write_videofile(
+        final_video.write_videofile(
             video_path,
-            fps=24,                # 24 fps pour fluidité acceptable
+            fps=24,
             codec="libx264",
             audio_codec="aac",
-            preset='medium',       # Meilleur équilibre qualité/vitesse
+            preset='medium',
             threads=2,
             verbose=False,
             logger=None
         )
 
-        st.success("Vidéo PRO générée : voix claire + transitions fluides + musique fond !")
+        st.success("Vidéo professionnelle générée ! Voix boostée + transitions + musique")
         st.video(video_path)
 
         with open(video_path, "rb") as f:
-            st.download_button("Télécharger Vidéo MP4", f, file_name=f"Pro_{company}_{subject}.mp4")
-
-        # Cleanup
-        os.remove(voice_path)
-        if music_path and os.path.exists(music_path):
-            os.remove(music_path)
-        os.remove(video_path)
-        for img in images:
-            if os.path.exists(img):
-                os.remove(img)
-        gc.collect()
+            st.download_button(
+                "Télécharger la vidéo MP4",
+                f,
+                file_name=f"Pro_{company.replace(' ','_')}_{subject.replace(' ','_')}.mp4"
+            )
 
         progress.progress(100)
         status.text("Terminé !")
 
     except Exception as e:
-        st.error(f"Erreur finale : {str(e)}")
-        if os.path.exists(voice_path):
-            os.remove(voice_path)
-        if music_path and os.path.exists(music_path):
-            os.remove(music_path)
+        st.error(f"Erreur lors de la génération vidéo : {str(e)}")
+
+    finally:
+        # Nettoyage systématique
+        for path in [voice_path, boosted_voice, music_path, video_path] + images:
+            try:
+                if path and os.path.exists(path):
+                    os.remove(path)
+            except:
+                pass
         gc.collect()
-
-
-
