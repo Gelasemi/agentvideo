@@ -1,7 +1,7 @@
+# requirements.txt
 streamlit>=1.42.0
 gtts>=2.5.0
-moviepy==1.0.3                  # 1.0.3 is very stable with ffmpeg & cloud
+moviepy==1.0.3
 pillow>=10.0.0
 requests
 beautifulsoup4
-pydub>=0.26.0                   # ← important: ≥0.26 removes audioop dependency
