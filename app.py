@@ -1,5 +1,3 @@
-VERSION AGEN VIDEO FONCTIONNEL
-
 # app.py - GlobeCast AI version ultime
 import streamlit as st
 from gtts import gTTS
@@ -324,4 +322,5 @@ if st.button("Générer Vidéo Dynamique"):
                 except:
                     pass
         gc.collect()
+
 
