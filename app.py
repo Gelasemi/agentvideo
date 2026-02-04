@@ -1,7 +1,8 @@
 # app.py — GlobeCast AI PRO (Commercial Grade)
 
 import streamlit as st
-import os, tempfile, random, gc
+import os
+os.environ["PATH"] += os.pathsep + r"C:\Users\hp\ffmpeg-2026-01-26-git-fe0813d6e2-essentials_build\bin"
 from gtts import gTTS
 from moviepy.editor import (
     VideoFileClip, ImageClip, AudioFileClip,
@@ -165,3 +166,4 @@ if st.button("🚀 Générer la vidéo publicitaire PRO"):
 
     finally:
         gc.collect()
+
