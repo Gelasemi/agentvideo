@@ -2,5 +2,6 @@ streamlit
 gtts
 moviepy==1.0.3
 pillow
-requests  # Pour scraping HTTP
-beautifulsoup4  # Pour parser HTML (bs4)
+requests
+beautifulsoup4
+pydub                    # ← Pour normaliser et améliorer la qualité audio
