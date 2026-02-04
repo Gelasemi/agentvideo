@@ -1,3 +1,4 @@
+# app.py - GlobeCast AI version finale
 import streamlit as st
 from gtts import gTTS
 import os
@@ -5,38 +6,47 @@ import tempfile
 import requests
 from bs4 import BeautifulSoup
 import gc
-import shutil
-from moviepy.config import change_settings
 from moviepy.editor import (
     ImageClip,
     AudioFileClip,
-    TextClip,
     CompositeVideoClip,
     concatenate_videoclips,
     ColorClip,
     CompositeAudioClip
 )
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 
-# Configuration MoviePy / ImageMagick – chemin automatique
-magick_bin = shutil.which("convert") or shutil.which("magick") or "convert"
-change_settings({"IMAGEMAGICK_BINARY": magick_bin})
+# -------------------------------
+# Paramètres
+# -------------------------------
+st.set_page_config(page_title="GlobeCast AI – Qualité Pro", layout="wide")
+st.title("🌍 GlobeCast AI – Version Qualité Pro")
+st.markdown("""
+**Créé par : Dauphin Gelase Michelot**  
+**Label : M&G Consulting**  
 
-# Supported languages
+Améliorations :  
+- Voix off boostée (volume corrigé via ffmpeg)  
+- Transitions crossfade entre images  
+- Musique de fond  
+- Texte overlay sans ImageMagick
+""")
+
 LANGUAGES = {
     "1. Anglais": "en",
-    "2. Chinois Mandarin": "zh",
-    "3. Hindi": "hi",
-    "4. Espagnol": "es",
-    "5. Français": "fr",
-    "6. Arabe": "ar",
-    "7. Bengali": "bn",
-    "8. Russe": "ru",
-    "9. Portugais": "pt",
-    "10. Ourdou": "ur"
+    "2. Français": "fr",
+    "3. Espagnol": "es",
+    "4. Chinois Mandarin": "zh",
+    "5. Hindi": "hi"
 }
 
+# -------------------------------
+# Fonctions utilitaires
+# -------------------------------
+
 def get_content(subject):
-    """Récupère un extrait de Wikipedia"""
+    """Récupère un extrait de Wikipedia (en anglais)"""
     content = ""
     try:
         query = subject.replace(' ', '_')
@@ -47,8 +57,8 @@ def get_content(subject):
         if div:
             paragraphs = div.find_all('p', limit=5)
             content = ' '.join(p.get_text().strip() for p in paragraphs)[:1000]
-    except Exception as e:
-        st.warning(f"Erreur Wikipedia : {e}")
+    except Exception:
+        content = ""
     return content or "Découvrez les avantages uniques de ce sujet."
 
 def get_images(subject, num=3):
@@ -63,32 +73,26 @@ def get_images(subject, num=3):
         img_tags = soup.find_all('img', {'srcset': True}, limit=num*3)
         
         for img in img_tags:
-            if 'srcset' in img.attrs:
-                srcset = img['srcset'].split(',')
-                url = srcset[-1].strip().split(' ')[0]
-                try:
-                    resp = requests.get(url, timeout=6, stream=True)
-                    if resp.status_code == 200:
-                        path = tempfile.mktemp(suffix=".jpg")
-                        with open(path, 'wb') as f:
-                            for chunk in resp.iter_content(8192):
-                                f.write(chunk)
-                        images.append(path)
-                        if len(images) >= num:
-                            break
-                except:
-                    continue
-    except Exception as e:
-        st.warning(f"Erreur images Unsplash : {e}")
+            srcset = img['srcset'].split(',')
+            img_url = srcset[-1].strip().split(' ')[0]
+            resp = requests.get(img_url, timeout=6, stream=True)
+            if resp.status_code == 200:
+                path = tempfile.mktemp(suffix=".jpg")
+                with open(path, 'wb') as f:
+                    for chunk in resp.iter_content(8192):
+                        f.write(chunk)
+                images.append(path)
+                if len(images) >= num:
+                    break
+    except:
+        pass
     return images
 
 def generate_script(subject, company, content):
     """Génère un script publicitaire court"""
     return (
         f"Attention ! {subject} change tout ! Avec {company}, profitez du meilleur. "
-        f"{content[:400]}... "
-        f"Chez {company}, qualité, innovation et confiance. "
-        f"Rejoignez-nous dès aujourd'hui : abonnez-vous, contactez-nous !"
+        f"{content[:400]}... Chez {company}, qualité, innovation et confiance."
     )
 
 def download_background_music():
@@ -111,7 +115,7 @@ def boost_audio_volume(input_path):
         boosted_path = tempfile.mktemp(suffix=".mp3")
         os.system(
             f'ffmpeg -y -i "{input_path}" -filter:a "volume=6dB" '
-            f'-acodec libmp3lame "{boosted_path}" > /dev/null 2>&1'
+            f'-acodec libmp3lame "{boosted_path}" > NUL 2>&1'
         )
         if os.path.exists(boosted_path) and os.path.getsize(boosted_path) > 10000:
             os.replace(boosted_path, input_path)
@@ -119,23 +123,43 @@ def boost_audio_volume(input_path):
             if os.path.exists(boosted_path):
                 os.remove(boosted_path)
     except:
-        pass  # silencieux en cas d'échec
+        pass
 
-st.set_page_config(page_title="GlobeCast AI – Qualité Pro", layout="wide")
+def make_text_clip(text, size, duration):
+    """Crée un clip texte avec PIL (sans ImageMagick)"""
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+    except:
+        font = ImageFont.load_default()
 
-st.title("🌍 GlobeCast AI – Version Qualité Pro")
-st.markdown("""
-**Créé par : Dauphin Gelase Michelot**  
-**Label :** M&G Consulting  
-**GitHub :** [gelasemi/agentvideo](https://github.com/gelasemi/agentvideo)  
+    margin = 60
+    max_width = size[0] - margin * 2
+    words = text.split()
+    lines, line = [], ""
 
-**Améliorations :**  
-- Voix off boostée (volume corrigé via ffmpeg)  
-- Transitions crossfade entre images  
-- Musique de fond à volume réduit  
-- Texte affiché sans dépendance lourde à ImageMagick
-""")
+    for word in words:
+        test = f"{line} {word}".strip()
+        if draw.textlength(test, font=font) <= max_width:
+            line = test
+        else:
+            lines.append(line)
+            line = word
+    lines.append(line)
 
+    y = size[1] - (len(lines) * 55) - 80
+    for l in lines:
+        w = draw.textlength(l, font=font)
+        x = (size[0] - w) // 2
+        draw.text((x, y), l, fill="white", font=font, stroke_width=2, stroke_fill="black")
+        y += 55
+
+    return ImageClip(np.array(img)).set_duration(duration)
+
+# -------------------------------
+# Inputs utilisateur
+# -------------------------------
 subject = st.text_input("Sujet", value="Café éthique")
 company = st.text_input("Entreprise", value="M&G Consulting")
 language_name = st.selectbox("Langue", list(LANGUAGES.keys()))
@@ -145,13 +169,12 @@ platform = st.selectbox("Plateforme", [
     "Facebook – Carré 1:1"
 ])
 
-if st.button("Générer Vidéo Pro", type="primary"):
+if st.button("Générer Vidéo Pro"):
+
     progress = st.progress(0)
     status = st.empty()
 
     lang_code = LANGUAGES[language_name]
-
-    # Déclarer toutes les variables temporaires dès le début
     voice_path = tempfile.mktemp(suffix=".mp3")
     music_path = None
     video_path = None
@@ -170,10 +193,10 @@ if st.button("Générer Vidéo Pro", type="primary"):
         status.text("Synthèse vocale (gTTS)...")
         tts = gTTS(text=script_text[:1000], lang=lang_code, slow=False)
         tts.save(voice_path)
-        boost_audio_volume(voice_path)  # boost volume
+        boost_audio_volume(voice_path)
         progress.progress(40)
 
-        status.text("Ajout musique de fond...")
+        status.text("Téléchargement musique de fond...")
         music_path = download_background_music()
         progress.progress(50)
 
@@ -181,7 +204,7 @@ if st.button("Générer Vidéo Pro", type="primary"):
         images = get_images(subject, num=3)
         progress.progress(60)
 
-        status.text("Assemblage vidéo avec transitions...")
+        status.text("Création vidéo...")
         voice_clip = AudioFileClip(voice_path)
         duration = min(voice_clip.duration, 60)
 
@@ -191,7 +214,6 @@ if st.button("Générer Vidéo Pro", type="primary"):
         else:
             audio_final = voice_clip
 
-        # Format selon plateforme
         if platform.startswith("TikTok"):
             size = (1080, 1920)
         elif platform.startswith("YouTube"):
@@ -212,22 +234,12 @@ if st.button("Générer Vidéo Pro", type="primary"):
         else:
             base_video = ColorClip(size=size, color=(20,20,40), duration=duration)
 
-        # Texte overlay sans dépendance lourde à ImageMagick
-        txt_clip = TextClip(
-            script_text[:150] + "...",
-            fontsize=50,
-            color='white',
-            stroke_color='black',
-            stroke_width=2,
-            font='DejaVu-Sans',
-            method='label',              # ← Solution clé pour éviter les erreurs policy
-            align='center',
-            size=(size[0]-140, None)
-        ).set_position(('center', 'bottom')).set_duration(duration)
+        txt_clip = make_text_clip(script_text[:180]+"...", size, duration)
+        txt_clip = txt_clip.set_position(('center', 'bottom'))
 
         final_video = CompositeVideoClip([base_video, txt_clip]).set_audio(audio_final)
-
         video_path = tempfile.mktemp(suffix=".mp4")
+
         final_video.write_videofile(
             video_path,
             fps=24,
@@ -239,7 +251,7 @@ if st.button("Générer Vidéo Pro", type="primary"):
             logger=None
         )
 
-        st.success("Vidéo professionnelle générée ! Voix boostée + transitions + musique")
+        st.success("Vidéo générée !")
         st.video(video_path)
 
         with open(video_path, "rb") as f:
@@ -256,7 +268,6 @@ if st.button("Générer Vidéo Pro", type="primary"):
         st.error(f"Erreur lors de la génération vidéo : {str(e)}")
 
     finally:
-        # Nettoyage sécurisé
         paths = [voice_path, music_path, video_path] + images
         for path in paths:
             if path and os.path.exists(path):
